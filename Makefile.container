@@ -1,7 +1,7 @@
 # Podman/Docker build configuration — uses prebuilt GHCR image
 CONTAINER_IMAGE := ghcr.io/themactep/thingino-builder-image
 CONTAINER_TAG := latest
-SHELL := /bin/bash
+SHELL := bash
 CONTAINER_ENGINE ?= $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null)
 USER_ID := $(shell id -u)
 GROUP_ID := $(shell id -g)
@@ -108,6 +108,7 @@ dl-container: dl-pull
 		$(CONTAINER_ENGINE) create --name $(DL_CONTAINER)-src $(DL_IMAGE):latest /bin/true; \
 		$(CONTAINER_ENGINE) export $(DL_CONTAINER)-src | tar -x --strip-components=1 --directory=$$($(CONTAINER_ENGINE) inspect $(DL_CONTAINER) --format '{{range .Mounts}}{{if eq .Destination "/dl"}}{{.Source}}{{end}}{{end}}') dl/; \
 		$(CONTAINER_ENGINE) rm $(DL_CONTAINER)-src >/dev/null; \
+		if echo "$(CONTAINER_ENGINE)" | grep -q docker; then $(CONTAINER_ENGINE) run --rm --user 0:0 --volumes-from $(DL_CONTAINER) $(CONTAINER_IMAGE):$(CONTAINER_TAG) chown -R $(USER_ID):$(GROUP_ID) /dl; fi; \
 		echo "dl cache volume populated"; \
 	else \
 		echo "dl cache helper container already exists"; \
@@ -128,7 +129,7 @@ container-make: container-pull
 	$(eval GROUP_ARG := $(if $(GROUP),GROUP=$(GROUP)))
 	$(eval IP_ARG := $(if $(IP),IP=$(IP)))
 	@echo "Running make $(CAMERA_ARG) $(GROUP_ARG) $(IP_ARG) $(MAKECMDGOALS) in container..."
-	@echo '#!/bin/bash' > /tmp/container-make-run.sh
+	@echo '#!/usr/bin/env bash' > /tmp/container-make-run.sh
 	@echo 'cleanup() {' >> /tmp/container-make-run.sh
 	@echo '    echo' >> /tmp/container-make-run.sh
 	@echo '    echo "Interrupted! Stopping container..."' >> /tmp/container-make-run.sh
